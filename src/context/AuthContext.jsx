@@ -14,18 +14,28 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true
 
+    function syncSession(nextSession) {
+      const nextUser = nextSession?.user ?? null
+      setSession(nextSession)
+      // Tab focus recovers the same session and emits SIGNED_IN or
+      // TOKEN_REFRESHED with a new object. Keep the current user when the
+      // id is unchanged so profile loading does not start again.
+      setUser((currentUser) =>
+        (currentUser?.id ?? null) === (nextUser?.id ?? null) ? currentUser : nextUser,
+      )
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return
-      setSession(data.session ?? null)
-      setUser(data.session?.user ?? null)
+      syncSession(data.session ?? null)
       setSessionLoading(false)
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-      setUser(nextSession?.user ?? null)
+      if (!isMounted) return
+      syncSession(nextSession)
     })
 
     return () => {
